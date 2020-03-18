@@ -11,14 +11,6 @@ import { Guid } from "guid-typescript";
 //  response.send("Hello from Firebase!");
 // });
 
-
-export const sendWelcomeEmail = fbFunctions.auth.user().onCreate((user) => {
-    // ...
-    adminFunctions.database().ref("/users/" + user.uid + "")
-        .push({ "buid": "" })
-
-});
-
 export const generateBuid = fbFunctions.database.ref("/users/{uid}").onCreate((snapshot, context) => {
     // Grab the current value of what was written to the Realtime Database.
     console.log("generating BUID for UID ", context.params.uid);
@@ -30,5 +22,7 @@ export const generateBuid = fbFunctions.database.ref("/users/{uid}").onCreate((s
         // remove dashes - so that we have pure octal representation only (4fbe945feb83a4a448aa)
         .replace("-","");
     // TODO: check that such BUID does not exist yet
+
+    adminFunctions.database()
     return snapshot.ref.parent!!.child('buid').set(buidAsString);
 });
