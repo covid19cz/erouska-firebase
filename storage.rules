@@ -1,7 +1,7 @@
 service firebase.storage {
   match /b/{bucket}/o {
     match /proximity/{fuid}/{allPaths=**} {
-      allow write: if request.auth.uid == fuid;
+      allow write: if request.auth.uid == fuid && request.resource.size < 10 * 1024 * 1024;
     }
   }
 }
