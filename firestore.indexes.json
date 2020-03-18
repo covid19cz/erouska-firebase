@@ -1,4 +1,18 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionId": "users",
+      "fields": [
+        {
+          "fieldPath": "buid",
+          "mode": "ASCENDING"
+        },
+        {
+          "fieldPath": "phoneNumber",
+          "mode": "ASCENDING"
+        }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }
