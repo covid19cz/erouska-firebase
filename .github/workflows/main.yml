@@ -12,6 +12,10 @@ jobs:
         uses: actions/checkout@master
       - name: Install Dependencies
         run: npm install
+      - name: Install Dependencies 2
+        run: sudo npm install -g firebase-tools 
+      - name: Install Dependencies 3
+        run: sudo npm install -g tsc
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
