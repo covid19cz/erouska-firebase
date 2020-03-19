@@ -78,7 +78,7 @@ export const createUser = functions.region('europe-west2').https.onCall(async (d
             ...payload,
             buid,
             phoneNumber,
-            infected: false,
+            status: "unknown",
             createdAt: getUTCTimestamp()
         });
     }
