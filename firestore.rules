@@ -1,10 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Users can access only their data
-    match /users/{userId} {
-      allow read: if request.auth.uid == userId;
+    match /{document=**} {
+      // Clients don't have access to Firestore at all
+      allow read, write: if false;
     }
   }
 }
