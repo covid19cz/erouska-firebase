@@ -12,8 +12,6 @@ jobs:
         uses: actions/checkout@master
       - name: Install Dependencies
         run: npm install
-      - name: Install tslint
-        run: sudo npm install -g tslint
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@master
         with:
