@@ -1,7 +1,8 @@
 import * as admin from "firebase-admin";
-import {registerBuidCallable} from "./endpoints/register-buid";
-import {deleteUserCallable, deleteUserDataTrigger} from "./endpoints/delete-user";
-import {deleteUploadsCallable} from "./endpoints/delete-uploads";
+import {registerBuidCallable} from "./functions/register-buid";
+import {deleteUserCallable, deleteUserDataTrigger} from "./functions/delete-user";
+import {deleteUploadsCallable} from "./functions/delete-uploads";
+import {scheduledBackup} from "./functions/database-backup";
 
 // Initialize Firebase
 admin.initializeApp({
@@ -11,3 +12,4 @@ admin.initializeApp({
 export {registerBuidCallable as registerBuid};
 export {deleteUserCallable as deleteUser, deleteUserDataTrigger};
 export {deleteUploadsCallable as deleteUploads};
+export {scheduledBackup};
