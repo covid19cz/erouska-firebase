@@ -86,17 +86,17 @@ async function registerBuid(
             }
         }
     }
-    throw new functions.https.HttpsError("deadline-exceeded", "Could not generate BUID");
+    throw new functions.https.HttpsError("deadline-exceeded", "Nepodařilo se vygenerovat BUID");
 }
 
 export const registerBuidCallable = functions.region(REGION).https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError("failed-precondition", "Missing authentication");
+        throw new functions.https.HttpsError("failed-precondition", "Chybějící autentizace");
     }
 
     const phoneNumber = context.auth.token.phone_number;
     if (phoneNumber === undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "Phone number is missing");
+        throw new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo");
     }
 
     const payload = parseRequest(RequestSchema, data);
@@ -111,11 +111,10 @@ export const registerBuidCallable = functions.region(REGION).https.onCall(async 
     }
 
     if (!(await hasSpaceforBuids(users, fuid, MAX_BUIDS_PER_USER))) {
-        throw new functions.https.HttpsError("resource-exhausted", "Too many BUIDs for the current user");
+        throw new functions.https.HttpsError("resource-exhausted", "Na Vašem účtu je již příliš mnoho registrovaných zařízení");
     }
 
     const buid = await registerBuid(firestore, users, firestore.collection("registrations"), fuid, payload);
     console.log(`Registered BUID ${buid} for user ${fuid}`);
-
     return {buid};
 });

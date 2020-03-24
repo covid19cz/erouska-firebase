@@ -11,7 +11,7 @@ const RequestSchema = t.type({
 
 export const deleteBuidCallable = functions.region(REGION).https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError("failed-precondition", "Missing authentication");
+        throw new functions.https.HttpsError("failed-precondition", "Chybějící autentizace");
     }
 
     const payload = parseRequest(RequestSchema, data);
@@ -24,7 +24,7 @@ export const deleteBuidCallable = functions.region(REGION).https.onCall(async (d
     const buidLastUpdateTime = buidDoc.updateTime;
 
     if (!await isBuidOwnedByFuid(client, buid, fuid)) {
-        throw new functions.https.HttpsError("failed-precondition", "Missing or non-owned BUID");
+        throw new functions.https.HttpsError("failed-precondition", "Zařízení neexistuje nebo nepatří Vašemu účtu");
     }
 
     const users = client.collection("users");
@@ -48,10 +48,8 @@ export const deleteBuidCallable = functions.region(REGION).https.onCall(async (d
                 lastUpdateTime: userLastUpdateTime
             });
         }
-
-        return true;
     } catch (error) {
         console.error(`Failed deleting buid ${buid}: ${error}`);
-        return false;
+        throw new functions.https.HttpsError("unavailable", "Nepodařilo se smazat informace o zařízení");
     }
 });
