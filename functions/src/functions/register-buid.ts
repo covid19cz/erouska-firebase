@@ -1,20 +1,19 @@
 import * as functions from "firebase-functions";
 import * as t from "io-ts"
-import {isLeft} from "fp-ts/lib/Either";
 import * as admin from "firebase-admin";
-import {PathReporter} from "io-ts/lib/PathReporter";
 import {MAX_BUIDS_PER_USER, REGION} from "../settings";
 import {CollectionReference} from "@google-cloud/firestore";
 import {randomBytes} from "crypto";
+import {parseRequest} from "../lib/request";
 
 const MAX_BUID_RETRIES = 10;
 const BUID_BYTE_LENGTH = 10;
 
-function getUTCTimestamp(): number {
+function getUnixTimestamp(): number {
     return Math.floor(Date.now() / 1000);
 }
 
-const Request = t.type({
+const RequestSchema = t.type({
     platform: t.string,
     platformVersion: t.string,
     manufacturer: t.string,
@@ -22,15 +21,6 @@ const Request = t.type({
     locale: t.string,
     pushRegistrationToken: t.string
 });
-
-function parseRequest(data: any): {} {
-    const parsed = t.exact(Request).decode(data);
-    if (isLeft(parsed)) {
-        console.error(PathReporter.report(parsed));
-        throw new functions.https.HttpsError("invalid-argument", "Wrong arguments");
-    }
-    return parsed.right;
-}
 
 function generateBuid(): string {
     return randomBytes(BUID_BYTE_LENGTH).toString("hex");
@@ -44,7 +34,7 @@ async function registerUserIfNotExists(collection: CollectionReference, fuid: st
     try {
         await collection.doc(fuid).create({
             phoneNumber,
-            createdAt: getUTCTimestamp(),
+            createdAt: getUnixTimestamp(),
             registrationCount: 0
         });
         return true;
@@ -65,10 +55,11 @@ async function hasSpaceforBuids(
     if (!doc.exists) {
         return false;
     }
-    return doc.get("registrationCount") < maxCount;
+    return (doc.get("registrationCount") || 0) < maxCount;
 }
 
 async function registerBuid(
+    client: admin.firestore.Firestore,
     users: CollectionReference,
     registrations: CollectionReference,
     fuid: string,
@@ -77,14 +68,16 @@ async function registerBuid(
     for (let i = 0; i < MAX_BUID_RETRIES; i++) {
         const buid = generateBuid();
         try {
-            await registrations.doc(buid).create({
+            const batch = client.batch();
+            batch.create(registrations.doc(buid), {
                 ...data,
                 fuid,
-                createdAt: getUTCTimestamp()
+                createdAt: getUnixTimestamp()
             });
-            await users.doc(fuid).update({
+            batch.update(users.doc(fuid), {
                 registrationCount: admin.firestore.FieldValue.increment(1)
             });
+            await batch.commit();
 
             return buid;
         } catch (e) {
@@ -106,7 +99,7 @@ export const registerBuidCallable = functions.region(REGION).https.onCall(async 
         throw new functions.https.HttpsError("failed-precondition", "Phone number is missing");
     }
 
-    const payload = parseRequest(data);
+    const payload = parseRequest(RequestSchema, data);
 
     const fuid = context.auth.uid;
     const firestore = admin.firestore();
@@ -121,7 +114,7 @@ export const registerBuidCallable = functions.region(REGION).https.onCall(async 
         throw new functions.https.HttpsError("resource-exhausted", "Too many BUIDs for the current user");
     }
 
-    const buid = await registerBuid(users, firestore.collection("registrations"), fuid, payload);
+    const buid = await registerBuid(firestore, users, firestore.collection("registrations"), fuid, payload);
     console.log(`Registered BUID ${buid} for user ${fuid}`);
 
     return {buid};
