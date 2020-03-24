@@ -21,21 +21,33 @@ export const deleteBuidCallable = functions.region(REGION).https.onCall(async (d
 
     const registrations = client.collection("registrations");
     const buidDoc = await registrations.doc(buid).get();
-    const lastUpdateTime = buidDoc.updateTime;
+    const buidLastUpdateTime = buidDoc.updateTime;
 
     if (!await isBuidOwnedByFuid(client, buid, fuid)) {
         throw new functions.https.HttpsError("failed-precondition", "Missing or non-owned BUID");
     }
 
+    const users = client.collection("users");
+    const userRef = users.doc(fuid);
+    const batch = client.batch();
+    const user = await userRef.get();
+    const userLastUpdateTime = user.updateTime;
+
     try {
-        const batch = client.batch();
-        batch.update(client.collection("users").doc(fuid), {
+        batch.update(userRef, {
             registrationCount: firestore.FieldValue.increment(-1)
         });
         batch.delete(registrations.doc(buid), {
-            lastUpdateTime
+            lastUpdateTime: buidLastUpdateTime
         });
         await batch.commit();
+
+        // not fully atomic
+        if (user.get("registrationCount") === 1) {
+            await userRef.delete({
+                lastUpdateTime: userLastUpdateTime
+            });
+        }
 
         return true;
     } catch (error) {
