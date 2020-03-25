@@ -4,6 +4,7 @@ import {REGION} from "../settings";
 import * as t from "io-ts";
 import {parseRequest} from "../lib/request";
 import {isBuidOwnedByFuid} from "../lib/database";
+import {deleteUploads} from "../lib/storage";
 
 const RequestSchema = t.type({
     buid: t.string,
@@ -48,6 +49,8 @@ export const deleteBuidCallable = functions.region(REGION).https.onCall(async (d
                 lastUpdateTime: userLastUpdateTime
             });
         }
+
+        await deleteUploads(fuid, buid);
     } catch (error) {
         console.error(`Failed deleting buid ${buid}: ${error}`);
         throw new functions.https.HttpsError("unavailable", "Nepodařilo se smazat informace o zařízení");
