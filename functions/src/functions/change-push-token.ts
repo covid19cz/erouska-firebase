@@ -12,7 +12,7 @@ const RequestSchema = t.type({
 
 export const changePushTokenCallable = functions.region(REGION).https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError("failed-precondition", "Chybějící autentizace");
+        throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
 
     const payload = parseRequest(RequestSchema, data);
@@ -22,7 +22,7 @@ export const changePushTokenCallable = functions.region(REGION).https.onCall(asy
     const client = firestore();
 
     if (!await isBuidOwnedByFuid(client, buid, fuid)) {
-        throw new functions.https.HttpsError("failed-precondition", "Zařízení neexistuje nebo nepatří Vašemu účtu");
+        throw new functions.https.HttpsError("unauthenticated", "Zařízení neexistuje nebo nepatří Vašemu účtu");
     }
 
     const registrations = client.collection("registrations");

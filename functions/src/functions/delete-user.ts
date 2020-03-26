@@ -6,7 +6,7 @@ import UserRecord = admin.auth.UserRecord;
 
 export const deleteUserCallable = functions.region(REGION).https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError("failed-precondition", "Chybějící autentizace");
+        throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
 
     const fuid = context.auth.uid;
@@ -40,7 +40,9 @@ async function deleteRegistrations(client: admin.firestore.Firestore, fuid: stri
         console.log(`Deleting user ${fuid} registrations`);
         const documents = await registrations.where("fuid", "==", fuid).select().get();
         for (const document of documents.docs) {
-            await document.ref.delete();
+            if (document.exists) {
+                await document.ref.delete();
+            }
         }
     } catch (error) {
         console.log(`Failed deleting user ${fuid} registrations: ${error}`);
@@ -58,7 +60,7 @@ async function deleteUserEntry(client: admin.firestore.Firestore, fuid: string) 
     }
 }
 
-export const deleteUserTrigger = functions.auth.user().onDelete(async (user: UserRecord) => {
+export const deleteUserTrigger = functions.region(REGION).auth.user().onDelete(async (user: UserRecord) => {
     const fuid = user.uid;
     const client = admin.firestore();
     await deleteAllUploads(client, fuid);

@@ -91,7 +91,7 @@ async function registerBuid(
 
 export const registerBuidCallable = functions.region(REGION).https.onCall(async (data, context) => {
     if (!context.auth) {
-        throw new functions.https.HttpsError("failed-precondition", "Chybějící autentizace");
+        throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
 
     const phoneNumber = context.auth.token.phone_number;
