@@ -16,7 +16,7 @@ export const deleteUserCallable = functions.region(REGION).https.onCall(async (d
         await auth.revokeRefreshTokens(fuid);
         await auth.deleteUser(fuid);
     } catch (error) {
-        console.log(`Erasing user ${fuid} failed: ${error}`);
+        console.error(`Erasing user ${fuid} failed: ${error}`);
         throw new functions.https.HttpsError("unavailable", "Nepodařilo se smazat uživatele");
     }
 });
@@ -31,7 +31,7 @@ async function deleteAllUploads(client: admin.firestore.Firestore, fuid: string)
             await deleteUploads(fuid, document.id)
         }
     } catch (error) {
-        console.log(`Failed deleting user ${fuid} uploads: ${error}`);
+        console.error(`Failed deleting user ${fuid} uploads: ${error}`);
     }
 }
 
@@ -47,7 +47,7 @@ async function deleteRegistrations(client: admin.firestore.Firestore, fuid: stri
             }
         }
     } catch (error) {
-        console.log(`Failed deleting user ${fuid} registrations: ${error}`);
+        console.error(`Failed deleting user ${fuid} registrations: ${error}`);
     }
 }
 
@@ -58,7 +58,7 @@ async function deleteUserEntry(client: admin.firestore.Firestore, fuid: string) 
         console.log(`Deleting user ${fuid} database entry`);
         await users.doc(fuid).delete();
     } catch (error) {
-        console.log(`Failed deleting user ${fuid} database entry: ${error}`);
+        console.error(`Failed deleting user ${fuid} database entry: ${error}`);
     }
 }
 

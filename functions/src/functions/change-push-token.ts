@@ -33,7 +33,7 @@ export const changePushTokenCallable = functions.region(REGION).https.onCall(asy
             pushRegistrationToken
         });
     } catch (error) {
-        console.log(`Changing push token for BUID ${buid}: ${error}`);
+        console.error(`Changing push token for BUID ${buid}: ${error}`);
         throw new functions.https.HttpsError("unavailable", "Nepodařilo se změnit push token");
     }
 });
