@@ -1,5 +1,5 @@
 import * as functions from "firebase-functions";
-import {BUCKET_URL, REGION} from "../settings";
+import {FIREBASE_BUCKET_URL, REGION} from "../settings";
 import * as firestore from "@google-cloud/firestore";
 import {storage} from "firebase-admin";
 
@@ -7,7 +7,7 @@ async function backupDatabase() {
     const prefix = "backups/database/";
 
     // delete old backups
-    const bucket = storage().bucket(BUCKET_URL);
+    const bucket = storage().bucket(FIREBASE_BUCKET_URL);
     await bucket.deleteFiles({
         prefix,
         force: true
@@ -15,7 +15,7 @@ async function backupDatabase() {
 
     const client = new firestore.v1.FirestoreAdminClient();
     const timestamp = Date.now().toString();
-    const outputUriPrefix = `gs://${BUCKET_URL}/${prefix}${timestamp}`;
+    const outputUriPrefix = `gs://${FIREBASE_BUCKET_URL}/${prefix}${timestamp}`;
     const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT;
     const databaseName = client.databasePath(projectId, "(default)");
     await client.exportDocuments({
