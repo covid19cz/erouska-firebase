@@ -3,17 +3,19 @@ import {AWSBucket} from "./lib/aws";
 import {FunctionBuilder, region, VALID_MEMORY_OPTIONS} from "firebase-functions";
 
 const REGION = "europe-west1";
+const GCP_PROJECT = process.env.GCP_PROJECT;
+
 export const MAX_BUIDS_PER_USER = 50;
 export const AWS_PHONE_CSV_PATH = "msisdn.csv";
 
 const SECRET_CLIENT = new SecretManagerServiceClient();
 
 async function loadSecret(name: string): Promise<string> {
-    if (name in process.env) {
-        return process.env[name] as string;
+    if (GCP_PROJECT === undefined) {
+        throw new Error("Missing GCP_PROJECT environment variable");
     }
 
-    const secret = (await SECRET_CLIENT.accessSecretVersion({name}))[0];
+    const secret = (await SECRET_CLIENT.accessSecretVersion({name: `projects/${GCP_PROJECT}/secrets/${name}/versions/latest`}))[0];
     const value = secret?.payload?.data?.toString();
     if (value === null || value === undefined) {
         throw Error(`Secret ${name} not found`);
