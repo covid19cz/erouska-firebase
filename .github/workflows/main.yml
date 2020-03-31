@@ -19,4 +19,4 @@ jobs:
       - name: Install Typescript
         run: sudo npm install -g typescript
       - name: Deploy to Firebase
-        run: firebase deploy --token=${{ secrets.FIREBASE_TOKEN }} --non-interactive
+        run: firebase deploy -P dev --token=${{ secrets.FIREBASE_TOKEN }} --non-interactive
