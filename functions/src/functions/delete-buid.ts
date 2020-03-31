@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import {firestore} from "firebase-admin";
-import {REGION} from "../settings";
+import {buildCloudFunction} from "../settings";
 import * as t from "io-ts";
 import {parseRequest} from "../lib/request";
 import {isBuidOwnedByFuid} from "../lib/database";
@@ -10,7 +10,7 @@ const RequestSchema = t.type({
     buid: t.string,
 });
 
-export const deleteBuidCallable = functions.region(REGION).https.onCall(async (data, context) => {
+export const deleteBuidCallable = buildCloudFunction().https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }

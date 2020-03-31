@@ -1,12 +1,5 @@
-import * as functions from "firebase-functions";
 import {S3} from "aws-sdk";
-import {
-    AWS_PHONE_CSV_PATH,
-    FIREBASE_BUCKET_URL,
-    loadAwsReadBucket,
-    loadAwsWriteBucket,
-    REGION
-} from "../settings";
+import {buildCloudFunction, loadAwsReadBucket, loadAwsWriteBucket} from "../settings";
 import {firestore, storage} from "firebase-admin";
 import {format, parseStream, parseString} from "fast-csv";
 import {DeviceDetails, PhoneProximityData, ProximityRecord} from "../lib/proximity";
@@ -74,7 +67,7 @@ async function getFuidFromPhone(phone: string): Promise<string | null> {
 }
 
 async function getProximityRecord(fuid: string, buid: string): Promise<NodeJS.ReadableStream | null> {
-    const bucket = STORAGE_CLIENT.bucket(FIREBASE_BUCKET_URL);
+    const bucket = STORAGE_CLIENT.bucket();
     const files = (await bucket.getFiles({
         prefix: `proximity/${fuid}/${buid}/`,
         delimiter: "/",
@@ -213,7 +206,7 @@ export async function sendProximityToAws() {
     await uploadPhones(writeBucket, phones);
 }
 
-export const awsPoller = functions.region(REGION).pubsub
+export const awsPoller = buildCloudFunction().pubsub
     .schedule("every 5 minutes")
     .onRun(async (context) => {
         await sendProximityToAws();

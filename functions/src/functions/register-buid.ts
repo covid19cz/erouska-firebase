@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as t from "io-ts"
 import * as admin from "firebase-admin";
-import {MAX_BUIDS_PER_USER, REGION} from "../settings";
+import {buildCloudFunction, MAX_BUIDS_PER_USER} from "../settings";
 import {CollectionReference} from "@google-cloud/firestore";
 import {randomBytes} from "crypto";
 import {parseRequest} from "../lib/request";
@@ -89,7 +89,7 @@ async function registerBuid(
     throw new functions.https.HttpsError("deadline-exceeded", "Nepodařilo se vygenerovat BUID");
 }
 
-export const registerBuidCallable = functions.region(REGION).https.onCall(async (data, context) => {
+export const registerBuidCallable = buildCloudFunction().https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }

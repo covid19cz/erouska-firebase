@@ -1,10 +1,10 @@
 import * as functions from "firebase-functions";
-import {REGION} from "../settings";
+import {buildCloudFunction} from "../settings";
 import * as admin from "firebase-admin";
 import {deleteUploads} from "../lib/storage";
 import UserRecord = admin.auth.UserRecord;
 
-export const deleteUserCallable = functions.region(REGION).https.onCall(async (data, context) => {
+export const deleteUserCallable = buildCloudFunction().https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
@@ -62,7 +62,7 @@ async function deleteUserEntry(client: admin.firestore.Firestore, fuid: string) 
     }
 }
 
-export const deleteUserTrigger = functions.region(REGION).auth.user().onDelete(async (user: UserRecord) => {
+export const deleteUserTrigger = buildCloudFunction().auth.user().onDelete(async (user: UserRecord) => {
     const fuid = user.uid;
     const client = admin.firestore();
     await deleteAllUploads(client, fuid);

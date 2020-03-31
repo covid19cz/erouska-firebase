@@ -1,5 +1,4 @@
-import * as functions from "firebase-functions";
-import {REGION} from "../settings";
+import {buildCloudFunction} from "../settings";
 import * as firestore from "@google-cloud/firestore";
 import {storage} from "firebase-admin";
 
@@ -25,7 +24,7 @@ async function backupDatabase() {
     });
 }
 
-export const scheduledBackup = functions.region(REGION).pubsub
+export const scheduledBackup = buildCloudFunction().pubsub
     .schedule("every 24 hours")
     .onRun(async (context) => {
         await backupDatabase();

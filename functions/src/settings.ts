@@ -1,8 +1,10 @@
 import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import {AWSBucket} from "./lib/aws";
+import {FunctionBuilder, region, VALID_MEMORY_OPTIONS} from "firebase-functions";
 
-export const REGION = "europe-west1";
+const REGION = "europe-west1";
 export const MAX_BUIDS_PER_USER = 50;
+export const AWS_PHONE_CSV_PATH = "msisdn.csv";
 
 const SECRET_CLIENT = new SecretManagerServiceClient();
 
@@ -25,12 +27,14 @@ async function loadBucket(secret_namespace: string, name: string): Promise<AWSBu
     return new AWSBucket(name, key, secret);
 }
 
-export const AWS_PHONE_CSV_PATH = "msisdn.csv";
-
 export async function loadAwsReadBucket(): Promise<AWSBucket> {
     return await loadBucket("aws_read_bucket", "keboola-to-erouska-eu-s3filesbucket-97le08muirlf");
 }
 
 export async function loadAwsWriteBucket(): Promise<AWSBucket> {
     return await loadBucket("aws_write_bucket", "erouska-to-keboola-eu-s3filesbucket-951s0u595wpl");
+}
+
+export function buildCloudFunction(params: { memory?: typeof VALID_MEMORY_OPTIONS[number], timeoutSeconds?: number } = {}): FunctionBuilder {
+    return region(REGION).runWith(params);
 }

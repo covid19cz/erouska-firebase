@@ -2,10 +2,14 @@ import * as admin from "firebase-admin";
 // this needs to be imported before initializing the admin SDK
 const _ = require("firebase-functions");
 
-// Initialize Firebase
-admin.initializeApp({
-    storageBucket: process.env.FIREBASE_BUCKET ?? undefined
-});
+if ("FIREBASE_BUCKET" in process.env) {
+    admin.initializeApp({
+        storageBucket: process.env.FIREBASE_BUCKET
+    });
+}
+else {
+    admin.initializeApp();
+}
 
 import {registerBuidCallable} from "./functions/register-buid";
 import {isBuidActiveCallable} from "./functions/is-buid-active";
