@@ -14,4 +14,13 @@ export type DeviceProximityData = ProximityRecord[];
 
 export interface DeviceDetails {
     phone: string;
+    manufacturer: string;
+    model: string;
+    platform: string;
+    platformVersion: string;
+}
+
+export interface ProximityFile {
+    stream: NodeJS.ReadableStream,
+    updatedAt: Date
 }

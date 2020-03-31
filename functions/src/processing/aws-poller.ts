@@ -7,15 +7,10 @@ import {
 } from "../settings";
 import {firestore, storage} from "firebase-admin";
 import {format, parseStream, parseString} from "fast-csv";
-import {DeviceDetails, PhoneProximityData, ProximityRecord} from "../lib/proximity";
+import {DeviceDetails, PhoneProximityData, ProximityFile, ProximityRecord} from "../lib/proximity";
 import {AWSBucket} from "../lib/aws";
 
 type DeviceMap = { [key: string]: DeviceDetails };
-
-interface ProximityFile {
-    stream: NodeJS.ReadableStream,
-    updatedAt: Date
-}
 
 const FIRESTORE_CLIENT = firestore();
 const STORAGE_CLIENT = storage();
@@ -105,6 +100,7 @@ async function getOutputCSVUpdateTime(phone: string, bucket: AWSBucket): Promise
     const file = await getFileIfExists(bucket, path, true);
     return file?.LastModified ?? null;
 }
+
 function needsNewUpload(lastUploadTime: Date | null, recordTimes: (Date | null)[]): boolean {
     const validDates = recordTimes.filter(date => date !== null) as Date[];
     if (validDates.length === 0) {
@@ -132,10 +128,9 @@ async function getPhoneRecords(phone: string, bucket: AWSBucket): Promise<PhoneP
 
     const lastUploadTime = await getOutputCSVUpdateTime(phone, bucket);
     if (!needsNewUpload(lastUploadTime, buids.map(record => record.file?.updatedAt ?? null))) {
-        console.log(`Skipping uploading ${fuid}`);
+        console.log(`Skipping uploading ${fuid} (last upload at ${lastUploadTime})`);
         return null;
     }
-    console.log(`Uploading ${fuid}`);
 
     for (const {buid, file} of buids) {
         if (file !== null) {
@@ -157,7 +152,7 @@ async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
 
     const refs = [...buids.values()].map(buid => registrations.doc(buid));
     const fuidRefs = [];
-    const pendingBuids: { [key: string]: string } = {};
+    const pendingBuids: { [key: string]: Omit<DeviceDetails, "phone"> & { buid: string } } = {};
     const map: DeviceMap = {};
     if (refs.length === 0) return map;
 
@@ -166,15 +161,22 @@ async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
         if (document.exists) {
             const fuid = document.get("fuid");
             fuidRefs.push(users.doc(fuid));
-            pendingBuids[fuid] = buid;
+            pendingBuids[fuid] = {
+                buid,
+                manufacturer: document.get("manufacturer"),
+                model: document.get("model"),
+                platform: document.get("platform"),
+                platformVersion: document.get("platformVersion")
+            };
         }
     }
     if (fuidRefs.length === 0) return map;
 
     for (const document of await FIRESTORE_CLIENT.getAll(...fuidRefs)) {
-        const buid = pendingBuids[document.id];
+        const buidData = pendingBuids[document.id];
         if (document.exists) {
-            map[buid] = {
+            map[buidData.buid] = {
+                ...buidData,
                 phone: document.get("phoneNumber")
             };
         }
@@ -198,11 +200,11 @@ async function uploadPhone(bucket: AWSBucket, phoneData: PhoneProximityData, dev
     for (const buid of buids) {
         for (const row of phoneData.devices[buid]) {
             const neighbourBuid = row["buid"];
-            const deviceDetails = deviceMap[neighbourBuid] ?? {
-                phone: ""
-            };
+            const deviceDetails = deviceMap[neighbourBuid] ?? {};
+            const {model, manufacturer, platform, platformVersion} = deviceDetails;
             row["buid"] = buid;
-            row["phone"] = deviceDetails.phone;
+            row["phone"] = deviceDetails.phone ?? "";
+            row["device"] = model !== undefined ? `${manufacturer} ${model} ${platform} ${platformVersion}` : "";
             stream.write(row);
         }
     }
