@@ -240,8 +240,11 @@ export async function sendProximityToAws() {
     await uploadPhones(writeBucket, phones);
 }
 
-export const awsPoller = buildCloudFunction().pubsub
-    .schedule("every 5 minutes")
+export const awsPoller = buildCloudFunction({
+    memory: "1GB",
+    timeoutSeconds: 480
+}).pubsub
+    .schedule("every 10 minutes")
     .onRun(async (context) => {
         await sendProximityToAws();
     });
