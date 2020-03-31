@@ -1,11 +1,21 @@
 import {S3} from "aws-sdk";
-import {buildCloudFunction, loadAwsReadBucket, loadAwsWriteBucket} from "../settings";
+import {
+    AWS_PHONE_CSV_PATH,
+    buildCloudFunction,
+    loadAwsReadBucket,
+    loadAwsWriteBucket
+} from "../settings";
 import {firestore, storage} from "firebase-admin";
 import {format, parseStream, parseString} from "fast-csv";
 import {DeviceDetails, PhoneProximityData, ProximityRecord} from "../lib/proximity";
 import {AWSBucket} from "../lib/aws";
 
 type DeviceMap = { [key: string]: DeviceDetails };
+
+interface ProximityFile {
+    stream: NodeJS.ReadableStream,
+    updatedAt: Date
+}
 
 const FIRESTORE_CLIENT = firestore();
 const STORAGE_CLIENT = storage();
@@ -52,21 +62,13 @@ async function getPhoneNumbers(bucket: AWSBucket, path: string): Promise<string[
     }
 }
 
-async function findMissingPhones(bucket: AWSBucket, phones: string[]): Promise<string[]> {
-    const results = await Promise.all(phones.map(async (phone) => {
-        const file = await getFileIfExists(bucket, phone, true);
-        return {phone, missing: file === null};
-    }));
-    return results.filter(({phone, missing}) => missing).map(({phone}) => phone);
-}
-
 async function getFuidFromPhone(phone: string): Promise<string | null> {
     const query = await FIRESTORE_CLIENT.collection("users").where("phoneNumber", "==", phone).get();
     if (query.empty) return null;
     return query.docs[0].id;
 }
 
-async function getProximityRecord(fuid: string, buid: string): Promise<NodeJS.ReadableStream | null> {
+async function getProximityRecord(fuid: string, buid: string): Promise<ProximityFile | null> {
     const bucket = STORAGE_CLIENT.bucket();
     const files = (await bucket.getFiles({
         prefix: `proximity/${fuid}/${buid}/`,
@@ -75,7 +77,11 @@ async function getProximityRecord(fuid: string, buid: string): Promise<NodeJS.Re
     }))[0];
     if (files.length === 0) return null;
 
-    return files[0].createReadStream();
+    const metadata = await files[0].getMetadata();
+    return {
+        stream: files[0].createReadStream(),
+        updatedAt: new Date(metadata[0].updated)
+    };
 }
 
 function parseBuidCSVRecords(stream: NodeJS.ReadableStream, metBuids: Set<string>): Promise<ProximityRecord[]> {
@@ -94,7 +100,20 @@ function parseBuidCSVRecords(stream: NodeJS.ReadableStream, metBuids: Set<string
     });
 }
 
-async function getPhoneRecords(phone: string): Promise<PhoneProximityData> {
+async function getOutputCSVUpdateTime(phone: string, bucket: AWSBucket): Promise<Date | null> {
+    const path = outputCSVFilePath(phone);
+    const file = await getFileIfExists(bucket, path, true);
+    return file?.LastModified ?? null;
+}
+function needsNewUpload(lastUploadTime: Date | null, recordTimes: (Date | null)[]): boolean {
+    const validDates = recordTimes.filter(date => date !== null) as Date[];
+    if (validDates.length === 0) {
+        return false;
+    }
+    return (lastUploadTime === null) || lastUploadTime < new Date(Math.max.apply(null, validDates as unknown as number[]));
+}
+
+async function getPhoneRecords(phone: string, bucket: AWSBucket): Promise<PhoneProximityData | null> {
     const result: PhoneProximityData = {
         phone,
         devices: {},
@@ -102,19 +121,26 @@ async function getPhoneRecords(phone: string): Promise<PhoneProximityData> {
     };
 
     const fuid = await getFuidFromPhone(phone);
-    if (fuid === null) return result;
+    if (fuid === null) return null;
 
     const registrations = FIRESTORE_CLIENT.collection("registrations");
     const query = await registrations.where("fuid", "==", fuid).get();
     const buids = await Promise.all(query.docs.map(async doc => ({
         buid: doc.id,
-        stream: await getProximityRecord(fuid, doc.id)
+        file: await getProximityRecord(fuid, doc.id)
     })));
 
-    for (const {buid, stream} of buids) {
-        if (stream !== null) {
+    const lastUploadTime = await getOutputCSVUpdateTime(phone, bucket);
+    if (!needsNewUpload(lastUploadTime, buids.map(record => record.file?.updatedAt ?? null))) {
+        console.log(`Skipping uploading ${fuid}`);
+        return null;
+    }
+    console.log(`Uploading ${fuid}`);
+
+    for (const {buid, file} of buids) {
+        if (file !== null) {
             try {
-                result.devices[buid] = await parseBuidCSVRecords(parseStream(stream, {
+                result.devices[buid] = await parseBuidCSVRecords(parseStream(file.stream, {
                     headers: true,
                 }), result.metBuids);
             } catch (e) {
@@ -156,6 +182,15 @@ async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
     return map;
 }
 
+function outputCSVFilePath(phone: string): string {
+    let name = phone;
+    if (name.length > 0 && name[0] === "+") {
+        name = name.substr(1);
+    }
+
+    return `${name}.csv`;
+}
+
 async function uploadPhone(bucket: AWSBucket, phoneData: PhoneProximityData, deviceMap: DeviceMap) {
     const buids = Object.keys(phoneData.devices).sort();
     const stream = format({headers: true});
@@ -173,7 +208,7 @@ async function uploadPhone(bucket: AWSBucket, phoneData: PhoneProximityData, dev
     }
     stream.end();
 
-    const filePath = `${phoneData.phone}.csv`;
+    const filePath = outputCSVFilePath(phoneData.phone);
     await bucket.s3.upload({
         ...bucket.key(filePath),
         Body: stream
@@ -181,7 +216,7 @@ async function uploadPhone(bucket: AWSBucket, phoneData: PhoneProximityData, dev
 }
 
 async function uploadPhones(bucket: AWSBucket, phones: string[]) {
-    const records = await Promise.all(phones.map((phone) => getPhoneRecords(phone)));
+    const records = (await Promise.all(phones.map((phone) => getPhoneRecords(phone, bucket)))).filter(rec => rec !== null) as PhoneProximityData[];
     const buidSet = new Set<string>();
     for (const record of records) {
         for (const buid of record.metBuids) {
@@ -199,9 +234,6 @@ export async function sendProximityToAws() {
 
     const phones = await getPhoneNumbers(readBucket, AWS_PHONE_CSV_PATH);
     if (phones.length === 0) return;
-
-    // const missingPhones = await findMissingPhones(writeBucket, phones);
-    // if (missingPhones.length === 0) return;
 
     await uploadPhones(writeBucket, phones);
 }
