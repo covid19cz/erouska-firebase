@@ -2,42 +2,30 @@ import * as functions from "firebase-functions";
 import {S3} from "aws-sdk";
 import {
     AWS_PHONE_CSV_PATH,
-    AWS_WRITE_BUCKET,
-    AWSBucket,
     FIREBASE_BUCKET_URL,
+    loadAwsReadBucket,
+    loadAwsWriteBucket,
     REGION
 } from "../settings";
 import {firestore, storage} from "firebase-admin";
 import {format, parseStream, parseString} from "fast-csv";
 import {DeviceDetails, PhoneProximityData, ProximityRecord} from "../lib/proximity";
+import {AWSBucket} from "../lib/aws";
 
 type DeviceMap = { [key: string]: DeviceDetails };
 
-function createS3Client(bucket: AWSBucket): S3 {
-    return new S3({
-        apiVersion: "2006-03-01",
-        region: "eu-central-1",
-        accessKeyId: bucket.key,
-        secretAccessKey: bucket.secret
-    });
-}
+const FIRESTORE_CLIENT = firestore();
+const STORAGE_CLIENT = storage();
 
-function bucketKey(bucket: AWSBucket, key: string): { Bucket: string, Key: string } {
-    return {
-        Bucket: bucket.name,
-        Key: key
-    };
-}
-
-async function getFileIfExists(s3: S3, bucket: AWSBucket, file: string, headOnly: boolean = false): Promise<S3.Types.GetObjectOutput | null> {
+async function getFileIfExists(bucket: AWSBucket, file: string, headOnly: boolean = false): Promise<S3.Types.GetObjectOutput | null> {
     try {
         const params = {
-            ...bucketKey(bucket, file)
+            ...bucket.key(file)
         };
         if (headOnly) {
-            return await s3.headObject(params).promise();
+            return await bucket.s3.headObject(params).promise();
         } else {
-            return await s3.getObject(params).promise();
+            return await bucket.s3.getObject(params).promise();
         }
     } catch (e) {
         if ("statusCode" in e && e.statusCode === 404) {
@@ -52,13 +40,13 @@ function parsePhoneCSVRecords(stream: NodeJS.ReadableStream): Promise<string[]> 
         const phones: string[] = [];
         stream
             .on('error', error => reject(error))
-            .on('data', row => phones.push(row["phone"]))
+            .on('data', row => phones.push(`+${row["msisdn"]}`))
             .on('end', () => resolve(phones));
     });
 }
 
-async function getPhoneNumbers(s3: S3, bucket: AWSBucket): Promise<string[]> {
-    const file = await getFileIfExists(s3, bucket, AWS_PHONE_CSV_PATH);
+async function getPhoneNumbers(bucket: AWSBucket, path: string): Promise<string[]> {
+    const file = await getFileIfExists(bucket, path);
     if (file === null) return [];
 
     const buffer = (file.Body as Buffer);
@@ -71,23 +59,22 @@ async function getPhoneNumbers(s3: S3, bucket: AWSBucket): Promise<string[]> {
     }
 }
 
-async function findMissingPhones(s3: S3, bucket: AWSBucket, phones: string[]): Promise<string[]> {
+async function findMissingPhones(bucket: AWSBucket, phones: string[]): Promise<string[]> {
     const results = await Promise.all(phones.map(async (phone) => {
-        const file = await getFileIfExists(s3, bucket, phone, true);
+        const file = await getFileIfExists(bucket, phone, true);
         return {phone, missing: file === null};
     }));
     return results.filter(({phone, missing}) => missing).map(({phone}) => phone);
 }
 
 async function getFuidFromPhone(phone: string): Promise<string | null> {
-    const client = firestore();
-    const query = await client.collection("users").where("phoneNumber", "==", phone).get();
+    const query = await FIRESTORE_CLIENT.collection("users").where("phoneNumber", "==", phone).get();
     if (query.empty) return null;
     return query.docs[0].id;
 }
 
 async function getProximityRecord(fuid: string, buid: string): Promise<NodeJS.ReadableStream | null> {
-    const bucket = storage().bucket(FIREBASE_BUCKET_URL);
+    const bucket = STORAGE_CLIENT.bucket(FIREBASE_BUCKET_URL);
     const files = (await bucket.getFiles({
         prefix: `proximity/${fuid}/${buid}/`,
         delimiter: "/",
@@ -114,7 +101,7 @@ function parseBuidCSVRecords(stream: NodeJS.ReadableStream, metBuids: Set<string
     });
 }
 
-async function getPhoneRecords(s3: S3, bucket: AWSBucket, phone: string): Promise<PhoneProximityData> {
+async function getPhoneRecords(phone: string): Promise<PhoneProximityData> {
     const result: PhoneProximityData = {
         phone,
         devices: {},
@@ -124,8 +111,7 @@ async function getPhoneRecords(s3: S3, bucket: AWSBucket, phone: string): Promis
     const fuid = await getFuidFromPhone(phone);
     if (fuid === null) return result;
 
-    const client = firestore();
-    const registrations = client.collection("registrations");
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
     const query = await registrations.where("fuid", "==", fuid).get();
     const buids = await Promise.all(query.docs.map(async doc => ({
         buid: doc.id,
@@ -147,9 +133,8 @@ async function getPhoneRecords(s3: S3, bucket: AWSBucket, phone: string): Promis
 }
 
 async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
-    const client = firestore();
-    const registrations = client.collection("registrations");
-    const users = client.collection("users");
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
+    const users = FIRESTORE_CLIENT.collection("users");
 
     const refs = [...buids.values()].map(buid => registrations.doc(buid));
     const fuidRefs = [];
@@ -157,7 +142,7 @@ async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
     const map: DeviceMap = {};
     if (refs.length === 0) return map;
 
-    for (const document of await client.getAll(...refs)) {
+    for (const document of await FIRESTORE_CLIENT.getAll(...refs)) {
         const buid = document.id;
         if (document.exists) {
             const fuid = document.get("fuid");
@@ -167,7 +152,7 @@ async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
     }
     if (fuidRefs.length === 0) return map;
 
-    for (const document of await client.getAll(...fuidRefs)) {
+    for (const document of await FIRESTORE_CLIENT.getAll(...fuidRefs)) {
         const buid = pendingBuids[document.id];
         if (document.exists) {
             map[buid] = {
@@ -178,9 +163,8 @@ async function buildDeviceMap(buids: Set<string>): Promise<DeviceMap> {
     return map;
 }
 
-async function uploadPhone(s3: S3, bucket: AWSBucket, phoneData: PhoneProximityData, deviceMap: DeviceMap) {
+async function uploadPhone(bucket: AWSBucket, phoneData: PhoneProximityData, deviceMap: DeviceMap) {
     const buids = Object.keys(phoneData.devices).sort();
-
     const stream = format({headers: true});
 
     for (const buid of buids) {
@@ -197,14 +181,14 @@ async function uploadPhone(s3: S3, bucket: AWSBucket, phoneData: PhoneProximityD
     stream.end();
 
     const filePath = `${phoneData.phone}.csv`;
-    await s3.upload({
-        ...bucketKey(bucket, filePath),
+    await bucket.s3.upload({
+        ...bucket.key(filePath),
         Body: stream
     }).promise();
 }
 
-async function uploadPhones(s3: S3, bucket: AWSBucket, phones: string[]) {
-    const records = await Promise.all(phones.map((phone) => getPhoneRecords(s3, bucket, phone)));
+async function uploadPhones(bucket: AWSBucket, phones: string[]) {
+    const records = await Promise.all(phones.map((phone) => getPhoneRecords(phone)));
     const buidSet = new Set<string>();
     for (const record of records) {
         for (const buid of record.metBuids) {
@@ -213,20 +197,20 @@ async function uploadPhones(s3: S3, bucket: AWSBucket, phones: string[]) {
     }
 
     const deviceMap = await buildDeviceMap(buidSet);
-    await Promise.all(records.map(record => uploadPhone(s3, bucket, record, deviceMap)));
+    await Promise.all(records.map(record => uploadPhone(bucket, record, deviceMap)));
 }
 
 export async function sendProximityToAws() {
-    const s3_read = createS3Client(AWS_WRITE_BUCKET);
-    const phones = await getPhoneNumbers(s3_read, AWS_WRITE_BUCKET);
+    const readBucket = await loadAwsReadBucket();
+    const writeBucket = await loadAwsWriteBucket();
 
-    const s3_write = createS3Client(AWS_WRITE_BUCKET);
-    // const missingPhones = await findMissingPhones(s3_write, AWS_WRITE_BUCKET, phones);
+    const phones = await getPhoneNumbers(readBucket, AWS_PHONE_CSV_PATH);
+    if (phones.length === 0) return;
+
+    // const missingPhones = await findMissingPhones(writeBucket, phones);
     // if (missingPhones.length === 0) return;
 
-    await uploadPhones(s3_write, AWS_WRITE_BUCKET, phones);
-    // const file = await getFileIfExists(s3_write, AWS_WRITE_BUCKET, phones[0] + ".csv");
-    // console.log((file?.Body as Buffer).toString("utf-8"));
+    await uploadPhones(writeBucket, phones);
 }
 
 export const awsPoller = functions.region(REGION).pubsub

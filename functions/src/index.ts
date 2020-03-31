@@ -1,4 +1,10 @@
 import * as admin from "firebase-admin";
+
+// Initialize Firebase
+admin.initializeApp({
+    credential: admin.credential.applicationDefault()
+});
+
 import {registerBuidCallable} from "./functions/register-buid";
 import {isBuidActiveCallable} from "./functions/is-buid-active";
 import {deleteBuidCallable} from "./functions/delete-buid";
