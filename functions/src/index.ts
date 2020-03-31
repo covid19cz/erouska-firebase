@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 // this needs to be imported before initializing the admin SDK
+// @ts-ignore
 const _ = require("firebase-functions");
 
 if ("FIREBASE_BUCKET" in process.env) {
