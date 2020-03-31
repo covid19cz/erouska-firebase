@@ -2,8 +2,6 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import {AWSBucket} from "./lib/aws";
 
 export const REGION = "europe-west1";
-export const FIREBASE_BUCKET_URL = "covid19cz.appspot.com";
-
 export const MAX_BUIDS_PER_USER = 50;
 
 const SECRET_CLIENT = new SecretManagerServiceClient();
@@ -13,7 +11,7 @@ async function loadSecret(name: string): Promise<string> {
         return process.env[name] as string;
     }
 
-    const secret = (await SECRET_CLIENT.accessSecretVersion({ name }))[0];
+    const secret = (await SECRET_CLIENT.accessSecretVersion({name}))[0];
     const value = secret?.payload?.data?.toString();
     if (value === null || value === undefined) {
         throw Error(`Secret ${name} not found`);
