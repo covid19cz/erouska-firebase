@@ -94,7 +94,7 @@ export const registerBuidCallable = buildCloudFunction().https.onCall(async (dat
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
 
-    const phoneNumber = context.auth.token.phone_number;
+    const phoneNumber = context.auth?.token?.phone_number;
     if (phoneNumber === undefined) {
         throw new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo");
     }
