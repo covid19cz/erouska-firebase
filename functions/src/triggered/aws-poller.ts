@@ -68,9 +68,12 @@ async function getProximityRecord(fuid: string, buid: string): Promise<Proximity
     const files = (await bucket.getFiles({
         prefix: `proximity/${fuid}/${buid}/`,
         delimiter: "/",
-        maxResults: 1
+        maxResults: 50
     }))[0];
     if (files.length === 0) return null;
+
+    // sort by newest file first (based on UNIX timestamp filename)
+    files.sort((a, b) => b.name.localeCompare(a.name));
 
     return {
         stream: files[0].createReadStream(),
