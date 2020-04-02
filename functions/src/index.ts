@@ -16,16 +16,21 @@ import {registerBuidCallable} from "./functions/register-buid";
 import {isBuidActiveCallable} from "./functions/is-buid-active";
 import {deleteBuidCallable} from "./functions/delete-buid";
 import {deleteUploadsCallable} from "./functions/delete-uploads";
-import {deleteUserCallable, deleteUserTrigger} from "./functions/delete-user";
+import {deleteUserCallable} from "./functions/delete-user";
 import {changePushTokenCallable} from "./functions/change-push-token";
-import {scheduledBackup} from "./functions/database-backup";
-import {awsPoller} from "./processing/aws-poller";
+import {scheduledBackup} from "./triggered/database-backup";
+import {deleteUserTrigger} from "./triggered/delete-user";
+import {awsPoller} from "./triggered/aws-poller";
 
-export {awsPoller};
+// Callable functions
 export {changePushTokenCallable as changePushToken};
 export {isBuidActiveCallable as isBuidActive};
 export {registerBuidCallable as registerBuid};
 export {deleteBuidCallable as deleteBuid};
-export {deleteUserCallable as deleteUser, deleteUserTrigger};
+export {deleteUserCallable as deleteUser};
 export {deleteUploadsCallable as deleteUploads};
+
+// Triggerd functions
+export {awsPoller};
+export {deleteUserTrigger};
 export {scheduledBackup};
