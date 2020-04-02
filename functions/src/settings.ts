@@ -2,8 +2,8 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import {AWSBucket} from "./lib/aws";
 import {FunctionBuilder, region, VALID_MEMORY_OPTIONS} from "firebase-functions";
 
-const REGION = "europe-west1";
-const GCP_PROJECT = process.env.GCP_PROJECT;
+export const FIREBASE_REGION = "europe-west1";
+export const GCP_PROJECT = process.env.GCP_PROJECT as string;
 
 export const MAX_BUIDS_PER_USER = 50;
 export const AWS_PHONE_CSV_PATH = "msisdn.csv";
@@ -38,5 +38,5 @@ export async function loadAwsWriteBucket(): Promise<AWSBucket> {
 }
 
 export function buildCloudFunction(params: { memory?: typeof VALID_MEMORY_OPTIONS[number], timeoutSeconds?: number } = {}): FunctionBuilder {
-    return region(REGION).runWith(params);
+    return region(FIREBASE_REGION).runWith(params);
 }

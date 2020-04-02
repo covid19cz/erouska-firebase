@@ -72,10 +72,9 @@ async function getProximityRecord(fuid: string, buid: string): Promise<Proximity
     }))[0];
     if (files.length === 0) return null;
 
-    const metadata = await files[0].getMetadata();
     return {
         stream: files[0].createReadStream(),
-        updatedAt: new Date(metadata[0].updated)
+        updatedAt: new Date(files[0].metadata.updated)
     };
 }
 
