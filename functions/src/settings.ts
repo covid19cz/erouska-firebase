@@ -23,19 +23,13 @@ async function loadSecret(name: string): Promise<string> {
     return value;
 }
 
-async function loadBucket(secret_namespace: string, name: string): Promise<AWSBucket> {
-    const key = await loadSecret(`${secret_namespace}_key`);
-    const secret = await loadSecret(`${secret_namespace}_secret`);
+async function loadBucket(secret_namespace: string): Promise<AWSBucket> {
+    const [name, key, secret] = await Promise.all(["name", "key", "secret"].map(path => loadSecret(`${secret_namespace}_${path}`)));
     return new AWSBucket(name, key, secret);
 }
 
-export async function loadAwsReadBucket(): Promise<AWSBucket> {
-    return await loadBucket("aws_read_bucket", "keboola-to-erouska-eu-s3filesbucket-97le08muirlf");
-}
-
-export async function loadAwsWriteBucket(): Promise<AWSBucket> {
-    return await loadBucket("aws_write_bucket", "erouska-to-keboola-eu-s3filesbucket-951s0u595wpl");
-}
+export const loadAwsReadBucket = () => loadBucket("aws_read_bucket");
+export const loadAwsWriteBucket = () => loadBucket("aws_write_bucket");
 
 export function buildCloudFunction(params: { memory?: typeof VALID_MEMORY_OPTIONS[number], timeoutSeconds?: number } = {}): FunctionBuilder {
     return region(FIREBASE_REGION).runWith(params);

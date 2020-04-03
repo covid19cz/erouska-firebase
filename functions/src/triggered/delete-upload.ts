@@ -62,7 +62,6 @@ async function deleteUpload(req: https.Request) {
     const created = new Date(file.metadata.timeCreated);
     const expectedCreated = new Date(Date.now() - ((REMOVE_AFTER_SECONDS / 2) * 1000));
 
-    console.log(`File created at ${created}, expected at most at ${expectedCreated}`);
     if (created > expectedCreated) {
         console.log(`Upload at ${path} was rewritten at ${created}, not deleting yet`);
         return;
