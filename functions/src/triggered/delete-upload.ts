@@ -3,7 +3,7 @@ import {ObjectMetadata} from "firebase-functions/lib/providers/storage";
 import {CloudTasksClient} from "@google-cloud/tasks";
 import {google} from "@google-cloud/tasks/build/protos/protos";
 import {https} from "firebase-functions";
-import * as admin from "firebase-admin";
+import {STORAGE_CLIENT} from "../lib/storage";
 import ITask = google.cloud.tasks.v2.ITask;
 
 const UPLOAD_REMOVAL_QUEUE = "upload-removal";
@@ -49,7 +49,7 @@ async function deleteUpload(req: https.Request) {
     const path = req.body.path;
     if (!path) return;
 
-    const bucket = admin.storage().bucket();
+    const bucket = STORAGE_CLIENT.bucket();
     const files = (await bucket.getFiles({
         prefix: path
     }))[0];

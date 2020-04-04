@@ -1,5 +1,4 @@
 import * as functions from "firebase-functions";
-import {firestore} from "firebase-admin";
 import {buildCloudFunction} from "../settings";
 import * as t from "io-ts";
 import {parseRequest} from "../lib/request";
@@ -17,7 +16,6 @@ export const isBuidActiveCallable = buildCloudFunction().https.onCall(async (dat
     const payload = parseRequest(RequestSchema, data);
     const buid = payload.buid;
     const fuid = context.auth.uid;
-    const client = firestore();
 
-    return await isBuidOwnedByFuid(client, buid, fuid);
+    return await isBuidOwnedByFuid(buid, fuid);
 });

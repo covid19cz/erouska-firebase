@@ -1,10 +1,11 @@
 import * as admin from "firebase-admin";
 import {deleteUploads} from "../lib/storage";
 import {buildCloudFunction} from "../settings";
+import {FIRESTORE_CLIENT} from "../lib/database";
 import UserRecord = admin.auth.UserRecord;
 
-async function deleteAllUploads(client: admin.firestore.Firestore, fuid: string) {
-    const registrations = client.collection("registrations");
+async function deleteAllUploads(fuid: string) {
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
 
     try {
         console.log(`Deleting user ${fuid} uploads`);
@@ -17,8 +18,8 @@ async function deleteAllUploads(client: admin.firestore.Firestore, fuid: string)
     }
 }
 
-async function deleteRegistrations(client: admin.firestore.Firestore, fuid: string) {
-    const registrations = client.collection("registrations");
+async function deleteRegistrations(fuid: string) {
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
 
     try {
         console.log(`Deleting user ${fuid} registrations`);
@@ -33,8 +34,8 @@ async function deleteRegistrations(client: admin.firestore.Firestore, fuid: stri
     }
 }
 
-async function deleteUserEntry(client: admin.firestore.Firestore, fuid: string) {
-    const users = client.collection("users");
+async function deleteUserEntry(fuid: string) {
+    const users = FIRESTORE_CLIENT.collection("users");
 
     try {
         console.log(`Deleting user ${fuid} database entry`);
@@ -46,8 +47,7 @@ async function deleteUserEntry(client: admin.firestore.Firestore, fuid: string) 
 
 export const deleteUserTrigger = buildCloudFunction().auth.user().onDelete(async (user: UserRecord) => {
     const fuid = user.uid;
-    const client = admin.firestore();
-    await deleteAllUploads(client, fuid);
-    await deleteRegistrations(client, fuid);
-    await deleteUserEntry(client, fuid);
+    await deleteAllUploads(fuid);
+    await deleteRegistrations(fuid);
+    await deleteUserEntry(fuid);
 });

@@ -1,9 +1,8 @@
 import * as functions from "firebase-functions";
-import {firestore} from "firebase-admin";
 import {buildCloudFunction} from "../settings";
 import * as t from "io-ts";
 import {parseRequest} from "../lib/request";
-import {isBuidOwnedByFuid} from "../lib/database";
+import {FIRESTORE_CLIENT, isBuidOwnedByFuid} from "../lib/database";
 
 const RequestSchema = t.type({
     buid: t.string,
@@ -19,13 +18,12 @@ export const changePushTokenCallable = buildCloudFunction().https.onCall(async (
     const buid = payload.buid;
     const pushRegistrationToken = payload.pushRegistrationToken;
     const fuid = context.auth.uid;
-    const client = firestore();
 
-    if (!await isBuidOwnedByFuid(client, buid, fuid)) {
+    if (!await isBuidOwnedByFuid(buid, fuid)) {
         throw new functions.https.HttpsError("unauthenticated", "Zařízení neexistuje nebo nepatří Vašemu účtu");
     }
 
-    const registrations = client.collection("registrations");
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
 
     try {
         console.log(`Changing push token for BUID ${buid}`);

@@ -5,15 +5,13 @@ import {
     loadAwsReadBucket,
     loadAwsWriteBucket
 } from "../settings";
-import {firestore, storage} from "firebase-admin";
 import {format, parseStream, parseString} from "fast-csv";
 import {DeviceDetails, PhoneProximityData, ProximityFile, ProximityRecord} from "../lib/proximity";
 import {AWSBucket} from "../lib/aws";
+import {FIRESTORE_CLIENT, getFuidFromPhone} from "../lib/database";
+import {STORAGE_CLIENT} from "../lib/storage";
 
 type DeviceMap = { [key: string]: DeviceDetails };
-
-const FIRESTORE_CLIENT = firestore();
-const STORAGE_CLIENT = storage();
 
 async function getFileIfExists(bucket: AWSBucket, file: string, headOnly: boolean = false): Promise<S3.Types.GetObjectOutput | null> {
     try {
@@ -55,12 +53,6 @@ async function getPhoneNumbers(bucket: AWSBucket, path: string): Promise<string[
         console.error(`Error while parsing CSV phone numbers: ${e}`);
         return [];
     }
-}
-
-async function getFuidFromPhone(phone: string): Promise<string | null> {
-    const query = await FIRESTORE_CLIENT.collection("users").where("phoneNumber", "==", phone).get();
-    if (query.empty) return null;
-    return query.docs[0].id;
 }
 
 async function getProximityRecord(fuid: string, buid: string): Promise<ProximityFile | null> {

@@ -1,12 +1,12 @@
 import {buildCloudFunction} from "../settings";
 import * as firestore from "@google-cloud/firestore";
-import {storage} from "firebase-admin";
+import {STORAGE_CLIENT} from "../lib/storage";
 
 async function backupDatabase() {
     const prefix = "backups/database/";
 
     // delete old backups
-    const bucket = storage().bucket();
+    const bucket = STORAGE_CLIENT.bucket();
     await bucket.deleteFiles({
         prefix,
         force: true

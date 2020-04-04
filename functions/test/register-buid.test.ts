@@ -52,7 +52,6 @@ describe("registerBuid", () => {
         await registerBuidMock(makeDeviceData(), createAuth(fuid, phone));
         const doc = await firestore().collection("users").doc(fuid).get();
         equal(doc.exists, true);
-        equal(doc.get("phoneNumber"), phone);
         equal(doc.get("registrationCount"), 1);
     });
     it("should create BUID", async () => {

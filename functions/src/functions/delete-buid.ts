@@ -3,7 +3,7 @@ import {firestore} from "firebase-admin";
 import {buildCloudFunction} from "../settings";
 import * as t from "io-ts";
 import {parseRequest} from "../lib/request";
-import {isBuidOwnedByFuid} from "../lib/database";
+import {FIRESTORE_CLIENT, isBuidOwnedByFuid} from "../lib/database";
 import {deleteUploads} from "../lib/storage";
 
 const RequestSchema = t.type({
@@ -18,19 +18,18 @@ export const deleteBuidCallable = buildCloudFunction().https.onCall(async (data,
     const payload = parseRequest(RequestSchema, data);
     const buid = payload.buid;
     const fuid = context.auth.uid;
-    const client = firestore();
 
-    const registrations = client.collection("registrations");
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
     const buidDoc = await registrations.doc(buid).get();
     const buidLastUpdateTime = buidDoc.updateTime;
 
-    if (!await isBuidOwnedByFuid(client, buid, fuid)) {
+    if (!await isBuidOwnedByFuid(buid, fuid)) {
         throw new functions.https.HttpsError("unauthenticated", "Zařízení neexistuje nebo nepatří Vašemu účtu");
     }
 
-    const users = client.collection("users");
+    const users = FIRESTORE_CLIENT.collection("users");
     const userRef = users.doc(fuid);
-    const batch = client.batch();
+    const batch = FIRESTORE_CLIENT.batch();
     const user = await userRef.get();
     const userLastUpdateTime = user.updateTime;
 
