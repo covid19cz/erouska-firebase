@@ -74,6 +74,9 @@ async function deleteUpload(req: https.Request) {
     console.log(`Deleted upload at ${path}`);
 }
 
+/**
+ * This function must not be publicly available. It should only be callable with OIDC authentication.
+ */
 export const deleteUploadTask = buildCloudFunction().https.onRequest(async (req, res) => {
     await deleteUpload(req);
     res.end();

@@ -18,10 +18,11 @@ import {deleteBuidCallable} from "./functions/delete-buid";
 import {deleteUploadsCallable} from "./functions/delete-uploads";
 import {deleteUserCallable} from "./functions/delete-user";
 import {changePushTokenCallable} from "./functions/change-push-token";
-import {scheduledBackup} from "./triggered/database-backup";
+import {backupDatabaseCron} from "./triggered/database-backup";
 import {deleteUserTrigger} from "./triggered/delete-user";
-import {awsPoller} from "./triggered/aws-poller";
+import {awsPollerCron} from "./triggered/aws-poller";
 import {createObjectTrigger, deleteUploadTask} from "./triggered/delete-upload";
+import {deleteOldUsersCron} from "./triggered/delete-old-users";
 
 // Callable functions
 export {changePushTokenCallable as changePushToken};
@@ -30,10 +31,11 @@ export {registerBuidCallable as registerBuid};
 export {deleteBuidCallable as deleteBuid};
 export {deleteUserCallable as deleteUser};
 export {deleteUploadsCallable as deleteUploads};
-export {deleteUploadTask};
 
 // Triggered functions
-export {awsPoller};
-export {deleteUserTrigger};
-export {scheduledBackup};
+export {awsPollerCron};
+export {backupDatabaseCron};
+export {deleteOldUsersCron};
 export {createObjectTrigger};
+export {deleteUserTrigger};
+export {deleteUploadTask};
