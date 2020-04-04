@@ -24,8 +24,9 @@ async function backupDatabase() {
     });
 }
 
-export const scheduledBackup = buildCloudFunction().pubsub
-    .schedule("every 24 hours")
+export const backupDatabaseCron = buildCloudFunction().pubsub
+    .schedule("0 2 * * *")
+    .timeZone("Europe/Prague")
     .onRun(async (context) => {
         await backupDatabase();
     });
