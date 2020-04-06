@@ -1,9 +1,21 @@
 import * as admin from "firebase-admin";
 
-export async function isBuidOwnedByFuid(client: admin.firestore.Firestore,
-                                        buid: string,
+export const FIRESTORE_CLIENT = admin.firestore();
+export const FIREBASE_AUTH_CLIENT = admin.auth();
+
+export async function isBuidOwnedByFuid(buid: string,
                                         fuid: string): Promise<boolean> {
-    const buidDocRef = client.collection("registrations").doc(buid);
+    const buidDocRef = FIRESTORE_CLIENT.collection("registrations").doc(buid);
     const buidDoc = await buidDocRef.get();
     return buidDoc.exists && buidDoc.get("fuid") === fuid;
+}
+
+export async function getFuidFromPhone(phone: string): Promise<string | null> {
+    try {
+        const user = await FIREBASE_AUTH_CLIENT.getUserByPhoneNumber(phone);
+        return user?.uid ?? null;
+    }
+    catch (error) {
+        return null;
+    }
 }

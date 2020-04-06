@@ -1,13 +1,12 @@
-import * as functions from "firebase-functions";
-import {BUCKET_URL, REGION} from "../settings";
+import {buildCloudFunction} from "../settings";
 import * as firestore from "@google-cloud/firestore";
-import {storage} from "firebase-admin";
+import {STORAGE_CLIENT} from "../lib/storage";
 
 async function backupDatabase() {
     const prefix = "backups/database/";
 
     // delete old backups
-    const bucket = storage().bucket(BUCKET_URL);
+    const bucket = STORAGE_CLIENT.bucket();
     await bucket.deleteFiles({
         prefix,
         force: true
@@ -15,7 +14,7 @@ async function backupDatabase() {
 
     const client = new firestore.v1.FirestoreAdminClient();
     const timestamp = Date.now().toString();
-    const outputUriPrefix = `gs://${BUCKET_URL}/${prefix}${timestamp}`;
+    const outputUriPrefix = `gs://${bucket.name}/${prefix}${timestamp}`;
     const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT;
     const databaseName = client.databasePath(projectId, "(default)");
     await client.exportDocuments({
@@ -25,8 +24,9 @@ async function backupDatabase() {
     });
 }
 
-export const scheduledBackup = functions.region(REGION).pubsub
-    .schedule("every 24 hours")
+export const backupDatabaseCron = buildCloudFunction().pubsub
+    .schedule("0 2 * * *")
+    .timeZone("Europe/Prague")
     .onRun(async (context) => {
         await backupDatabase();
     });

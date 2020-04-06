@@ -1,10 +1,11 @@
 import * as functions from "firebase-functions";
 import * as t from "io-ts"
 import * as admin from "firebase-admin";
-import {MAX_BUIDS_PER_USER, REGION} from "../settings";
+import {buildCloudFunction, MAX_BUIDS_PER_USER} from "../settings";
 import {CollectionReference} from "@google-cloud/firestore";
 import {randomBytes} from "crypto";
 import {parseRequest} from "../lib/request";
+import {FIRESTORE_CLIENT} from "../lib/database";
 
 const MAX_BUID_RETRIES = 10;
 const BUID_BYTE_LENGTH = 10;
@@ -30,10 +31,9 @@ function isAlreadyExistsError(e: { code: number }): boolean {
     return "code" in e && e.code === 6;
 }
 
-async function registerUserIfNotExists(collection: CollectionReference, fuid: string, phoneNumber: string): Promise<boolean> {
+async function registerUserIfNotExists(collection: CollectionReference, fuid: string): Promise<boolean> {
     try {
         await collection.doc(fuid).create({
-            phoneNumber,
             createdAt: getUnixTimestamp(),
             registrationCount: 0
         });
@@ -89,23 +89,21 @@ async function registerBuid(
     throw new functions.https.HttpsError("deadline-exceeded", "Nepodařilo se vygenerovat BUID");
 }
 
-export const registerBuidCallable = functions.region(REGION).https.onCall(async (data, context) => {
+export const registerBuidCallable = buildCloudFunction().https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
 
-    const phoneNumber = context.auth.token.phone_number;
-    if (phoneNumber === undefined) {
+    if (context.auth?.token?.phone_number === undefined) {
         throw new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo");
     }
 
     const payload = parseRequest(RequestSchema, data);
 
     const fuid = context.auth.uid;
-    const firestore = admin.firestore();
-    const users = firestore.collection("users");
+    const users = FIRESTORE_CLIENT.collection("users");
 
-    const registered = await registerUserIfNotExists(users, fuid, phoneNumber);
+    const registered = await registerUserIfNotExists(users, fuid);
     if (registered) {
         console.log(`Registered user ${fuid}`);
     }
@@ -114,7 +112,7 @@ export const registerBuidCallable = functions.region(REGION).https.onCall(async 
         throw new functions.https.HttpsError("resource-exhausted", "Na Vašem účtu je již příliš mnoho registrovaných zařízení");
     }
 
-    const buid = await registerBuid(firestore, users, firestore.collection("registrations"), fuid, payload);
+    const buid = await registerBuid(FIRESTORE_CLIENT, users, FIRESTORE_CLIENT.collection("registrations"), fuid, payload);
     console.log(`Registered BUID ${buid} for user ${fuid}`);
     return {buid};
 });

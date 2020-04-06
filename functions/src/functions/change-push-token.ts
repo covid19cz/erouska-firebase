@@ -1,16 +1,15 @@
 import * as functions from "firebase-functions";
-import {firestore} from "firebase-admin";
-import {REGION} from "../settings";
+import {buildCloudFunction} from "../settings";
 import * as t from "io-ts";
 import {parseRequest} from "../lib/request";
-import {isBuidOwnedByFuid} from "../lib/database";
+import {FIRESTORE_CLIENT, isBuidOwnedByFuid} from "../lib/database";
 
 const RequestSchema = t.type({
     buid: t.string,
     pushRegistrationToken: t.string
 });
 
-export const changePushTokenCallable = functions.region(REGION).https.onCall(async (data, context) => {
+export const changePushTokenCallable = buildCloudFunction().https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
@@ -19,13 +18,12 @@ export const changePushTokenCallable = functions.region(REGION).https.onCall(asy
     const buid = payload.buid;
     const pushRegistrationToken = payload.pushRegistrationToken;
     const fuid = context.auth.uid;
-    const client = firestore();
 
-    if (!await isBuidOwnedByFuid(client, buid, fuid)) {
+    if (!await isBuidOwnedByFuid(buid, fuid)) {
         throw new functions.https.HttpsError("unauthenticated", "Zařízení neexistuje nebo nepatří Vašemu účtu");
     }
 
-    const registrations = client.collection("registrations");
+    const registrations = FIRESTORE_CLIENT.collection("registrations");
 
     try {
         console.log(`Changing push token for BUID ${buid}`);
@@ -33,7 +31,7 @@ export const changePushTokenCallable = functions.region(REGION).https.onCall(asy
             pushRegistrationToken
         });
     } catch (error) {
-        console.log(`Changing push token for BUID ${buid}: ${error}`);
+        console.error(`Changing push token for BUID ${buid}: ${error}`);
         throw new functions.https.HttpsError("unavailable", "Nepodařilo se změnit push token");
     }
 });
