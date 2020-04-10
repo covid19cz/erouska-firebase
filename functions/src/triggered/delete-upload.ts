@@ -11,13 +11,15 @@ const REMOVE_AFTER_SECONDS = 6 * 3600;
 
 const client = new CloudTasksClient();
 
-export const createObjectTrigger = buildCloudFunction().storage.object().onFinalize(async (object: ObjectMetadata) => {
+const STORAGE_REGION = "europe-west3";
+
+export const createObjectTrigger = buildCloudFunction({}, STORAGE_REGION).storage.object().onFinalize(async (object: ObjectMetadata) => {
     const path = object.name;
     if (!path?.startsWith("proximity")) return;
 
-    const queuePath = client.queuePath(GCP_PROJECT, FIREBASE_REGION, UPLOAD_REMOVAL_QUEUE);
+    const queuePath = client.queuePath(GCP_PROJECT, STORAGE_REGION, UPLOAD_REMOVAL_QUEUE);
     const serviceAccountEmail = `${GCP_PROJECT}@appspot.gserviceaccount.com`;
-    const url = `https://${FIREBASE_REGION}-${GCP_PROJECT}.cloudfunctions.net/deleteUploadTask`;
+    const url = `https://${STORAGE_REGION}-${GCP_PROJECT}.cloudfunctions.net/deleteUploadTask`;
     const payload = {path};
 
     const timeToRun = (Date.now() / 1000) + REMOVE_AFTER_SECONDS;
@@ -80,7 +82,7 @@ async function deleteUpload(req: https.Request) {
 /**
  * This function must not be publicly available. It should only be callable with OIDC authentication.
  */
-export const deleteUploadTask = buildCloudFunction().https.onRequest(async (req, res) => {
+export const deleteUploadTask = buildCloudFunction({}, STORAGE_REGION).https.onRequest(async (req, res) => {
     await deleteUpload(req);
     res.end();
 });
