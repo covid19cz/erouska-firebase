@@ -2,7 +2,7 @@ import {SecretManagerServiceClient} from "@google-cloud/secret-manager";
 import {AWSBucket} from "./lib/aws";
 import {FunctionBuilder, region, VALID_MEMORY_OPTIONS} from "firebase-functions";
 
-export const FIREBASE_REGION = "europe-west1";
+export const FIREBASE_REGION = "europe-west3";
 export const GCP_PROJECT = process.env.GCP_PROJECT as string;
 
 export const MAX_BUIDS_PER_USER = 50;
