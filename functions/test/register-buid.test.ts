@@ -9,8 +9,8 @@ import {expect} from "chai";
 
 export const registerBuidMock = FIREBASE_TEST.wrap(registerBuid);
 
-export function makeDeviceData() {
-    return {
+export function makeDeviceData(phone?: string | null) {
+    const data: { [key: string]: any } = {
         model: "model",
         manufacturer: "manufacturer",
         platform: "platform",
@@ -18,6 +18,10 @@ export function makeDeviceData() {
         locale: "locale",
         pushRegistrationToken: "pushRegistrationToken"
     };
+    if (phone !== undefined) {
+        data["unverifiedPhoneNumber"] = phone;
+    }
+    return data;
 }
 
 describe("registerBuid", () => {
@@ -27,12 +31,17 @@ describe("registerBuid", () => {
         }, new functions.https.HttpsError("unauthenticated", "Chybějící autentizace"));
     });
     it("should not accept users without phone numbers", async () => {
+        const auth = {
+            auth: {
+                uid: "1"
+            }
+        };
         await rejects(async () => {
-            await registerBuidMock({}, {
-                auth: {
-                    uid: "1"
-                }
-            });
+            await registerBuidMock(makeDeviceData(), auth);
+        }, new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo"));
+
+        await rejects(async () => {
+            await registerBuidMock(makeDeviceData(null), auth);
         }, new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo"));
     });
     it("should not accept wrong input", async () => {
@@ -46,6 +55,10 @@ describe("registerBuid", () => {
                 manufacturer: "model2"
             }, createAuth("uid1", "123456789"));
         }, new functions.https.HttpsError("invalid-argument", "Wrong arguments"));
+
+        await rejects(async () => {
+            await registerBuidMock(makeDeviceData("123"), createAuth("uid1", "123456789"));
+        }, new functions.https.HttpsError("invalid-argument", "Špatné parametry"));
     });
     it("should create a user with the correct phone number", async () => {
         const fuid = "uid1";
@@ -54,6 +67,7 @@ describe("registerBuid", () => {
         const doc = await firestore().collection("users").doc(fuid).get();
         equal(doc.exists, true);
         equal(doc.get("registrationCount"), 1);
+        equal(doc.get("unverifiedPhoneNumber"), undefined);
     });
     it("should create BUID", async () => {
         const fuid = "uid1";
@@ -110,5 +124,17 @@ describe("registerBuid", () => {
         await rejects(async () => {
             await registerBuidMock(data, auth);
         }, new functions.https.HttpsError("resource-exhausted", "Na Vašem účtu je již příliš mnoho registrovaných zařízení"));
+    });
+    it("should allow users with unverified phone numbers", async () => {
+        const uid = "uid1";
+        const phone = "phone1";
+        const auth = {
+            auth: {
+                uid,
+            }
+        };
+        await registerBuidMock(makeDeviceData(phone), auth);
+        const doc = await firestore().collection("users").doc(uid).get();
+        equal(doc.get("unverifiedPhoneNumber"), phone);
     });
 });
