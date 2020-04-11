@@ -9,6 +9,7 @@ import {FIRESTORE_CLIENT} from "../lib/database";
 
 const MAX_BUID_RETRIES = 10;
 const BUID_BYTE_LENGTH = 10;
+const MAX_TUID_RETRIES = 10;
 const TUID_BYTE_LENGTH = 10;
 
 function getUnixTimestamp(): number {
@@ -100,26 +101,29 @@ async function createTuids(
     buid: string,
     count: number
 ): Promise<string[]> {
-    const batch = client.batch();
-    const tuids = [];
+    for (let r = 0; r < MAX_TUID_RETRIES; r++) {
+        const batch = client.batch();
+        const tuids = [];
 
-    for (let i = 0; i < count; i++) {
-        const tuid = generateTuid();
-        batch.create(tuidCollection.doc(tuid), {
-            buid,
-            fuid,
-            createdAt: getUnixTimestamp()
-        });
-        tuids.push(tuid);
-    }
+        for (let i = 0; i < count; i++) {
+            const tuid = generateTuid();
+            batch.create(tuidCollection.doc(tuid), {
+                buid,
+                fuid,
+                createdAt: getUnixTimestamp()
+            });
+            tuids.push(tuid);
+        }
 
-    try {
-        await batch.commit();
-        return tuids;
-    } catch (e) {
-        console.log(`Error during TUID generation: ${e} for buid ${buid}`);
-        throw new functions.https.HttpsError("internal", "Nepodařilo se vygenerovat TUID");
+        try {
+            await batch.commit();
+            return tuids;
+        } catch (e) {
+            console.error(`Error during TUID generation: ${e} for buid ${buid}`);
+        }
     }
+    console.error(`Error during TUID generation: could not find enough TUIDs after ${MAX_TUID_RETRIES} for buid ${buid}`);
+    throw new functions.https.HttpsError("internal", "Nepodařilo se vygenerovat TUID");
 }
 
 export const registerBuidCallable = buildCloudFunction().https.onCall(async (data, context) => {
