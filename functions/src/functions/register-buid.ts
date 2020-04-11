@@ -16,7 +16,7 @@ function getUnixTimestamp(): number {
     return Math.floor(Date.now() / 1000);
 }
 
-const RequestSchema = t.type({
+const RequiredSchema = t.type({
     platform: t.string,
     platformVersion: t.string,
     manufacturer: t.string,
@@ -24,6 +24,10 @@ const RequestSchema = t.type({
     locale: t.string,
     pushRegistrationToken: t.string
 });
+const OptionalSchema = t.partial({
+    unverifiedPhoneNumber: t.union([t.null, t.string])
+})
+const RequestSchema = t.intersection([RequiredSchema, OptionalSchema]);
 
 function generateBytes(count: number): string {
     return randomBytes(count).toString("hex");
@@ -36,12 +40,19 @@ function isAlreadyExistsError(e: { code: number }): boolean {
     return "code" in e && e.code === 6;
 }
 
-async function registerUserIfNotExists(collection: CollectionReference, fuid: string): Promise<boolean> {
+async function registerUserIfNotExists(collection: CollectionReference,
+                                       fuid: string,
+                                       unverifiedPhoneNumber?: string | null): Promise<boolean> {
+    const args: {[key: string]: any} = {
+        createdAt: getUnixTimestamp(),
+        registrationCount: 0
+    };
+    if (unverifiedPhoneNumber !== undefined && unverifiedPhoneNumber !== null) {
+        args["unverifiedPhoneNumber"] = unverifiedPhoneNumber;
+    }
+
     try {
-        await collection.doc(fuid).create({
-            createdAt: getUnixTimestamp(),
-            registrationCount: 0
-        });
+        await collection.doc(fuid).create(args);
         return true;
     } catch (e) {
         if (!isAlreadyExistsError(e)) {
@@ -131,17 +142,23 @@ export const registerBuidCallable = buildCloudFunction().https.onCall(async (dat
         throw new functions.https.HttpsError("unauthenticated", "Chybějící autentizace");
     }
 
-    if (context.auth?.token?.phone_number === undefined) {
-        throw new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo");
-    }
-
     const payload = parseRequest(RequestSchema, data);
+
+    const hasVerifiedPhone = context.auth?.token?.phone_number !== undefined;
+    const hasUnverifiedPhone = (payload.unverifiedPhoneNumber !== undefined && payload.unverifiedPhoneNumber !== null);
+
+    if (!hasVerifiedPhone && !hasUnverifiedPhone) {
+        throw new functions.https.HttpsError("failed-precondition", "Chybí telefonní číslo");
+    } else if (hasVerifiedPhone && hasUnverifiedPhone) {
+        throw new functions.https.HttpsError("invalid-argument", "Špatné parametry");
+    }
 
     const fuid = context.auth.uid;
     const client = FIRESTORE_CLIENT;
     const users = client.collection("users");
+    const unverifiedPhoneNumber = hasUnverifiedPhone ? payload.unverifiedPhoneNumber : undefined;
 
-    const registered = await registerUserIfNotExists(users, fuid);
+    const registered = await registerUserIfNotExists(users, fuid, unverifiedPhoneNumber);
     if (registered) {
         console.log(`Registered user ${fuid}`);
     }
