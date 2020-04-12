@@ -6,15 +6,12 @@ import {CollectionReference} from "@google-cloud/firestore";
 import {randomBytes} from "crypto";
 import {parseRequest} from "../lib/request";
 import {FIRESTORE_CLIENT} from "../lib/database";
+import {getUnixTimestamp} from "../lib/time";
 
 const MAX_BUID_RETRIES = 10;
 const BUID_BYTE_LENGTH = 10;
 const MAX_TUID_RETRIES = 10;
 const TUID_BYTE_LENGTH = 10;
-
-function getUnixTimestamp(): number {
-    return Math.floor(Date.now() / 1000);
-}
 
 const RequiredSchema = t.type({
     platform: t.string,
@@ -43,7 +40,7 @@ function isAlreadyExistsError(e: { code: number }): boolean {
 async function registerUserIfNotExists(collection: CollectionReference,
                                        fuid: string,
                                        unverifiedPhoneNumber?: string | null): Promise<boolean> {
-    const args: {[key: string]: any} = {
+    const args: { [key: string]: any } = {
         createdAt: getUnixTimestamp(),
         registrationCount: 0
     };
@@ -160,7 +157,7 @@ export const registerBuidCallable = buildCloudFunction().https.onCall(async (dat
 
     const registered = await registerUserIfNotExists(users, fuid, unverifiedPhoneNumber);
     if (registered) {
-        console.log(`Registered user ${fuid}, phoneNumberStatus=${hasUnverifiedPhone? 'UNVERIFIED' : 'VERIFIED'}`);
+        console.log(`Registered user ${fuid}, phoneNumberStatus=${hasUnverifiedPhone ? 'UNVERIFIED' : 'VERIFIED'}`);
     }
 
     if (!(await hasSpaceforBuids(users, fuid, MAX_BUIDS_PER_USER))) {

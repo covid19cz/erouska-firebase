@@ -23,6 +23,7 @@ import {deleteUserTrigger} from "./triggered/delete-user";
 import {awsPollerCron} from "./triggered/aws-poller";
 import {createObjectTrigger, deleteUploadTask} from "./triggered/delete-upload";
 import {deleteOldUsersCron} from "./triggered/delete-old-users";
+import {storeEventCallable} from "./functions/store-event";
 
 // Callable functions
 export {changePushTokenCallable as changePushToken};
@@ -31,6 +32,7 @@ export {registerBuidCallable as registerBuid};
 export {deleteBuidCallable as deleteBuid};
 export {deleteUserCallable as deleteUser};
 export {deleteUploadsCallable as deleteUploads};
+export {storeEventCallable as storeEvent};
 
 // Triggered functions
 export {awsPollerCron};
