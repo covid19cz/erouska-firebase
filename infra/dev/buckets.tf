@@ -1,6 +1,6 @@
 resource "google_storage_bucket" "main-bucket" {
-  name          = "${var.project}.appspot.com"
-  location      = "eu"
+  name     = "${var.project}.appspot.com"
+  location = "eu"
 
   lifecycle_rule {
     condition {
