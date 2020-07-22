@@ -2,6 +2,7 @@ import * as admin from "firebase-admin";
 
 export const FIRESTORE_CLIENT = admin.firestore();
 export const FIREBASE_AUTH_CLIENT = admin.auth();
+export const FIREBASE_DB = admin.database();
 
 export async function isBuidOwnedByFuid(buid: string,
                                         fuid: string): Promise<boolean> {

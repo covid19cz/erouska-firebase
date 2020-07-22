@@ -5,7 +5,7 @@ import {buildCloudFunction, INITIAL_TUIDS_PER_BUID, MAX_BUIDS_PER_USER} from "..
 import {CollectionReference} from "@google-cloud/firestore";
 import {randomBytes} from "crypto";
 import {parseRequest} from "../lib/request";
-import {FIRESTORE_CLIENT} from "../lib/database";
+import {FIREBASE_DB, FIRESTORE_CLIENT} from "../lib/database";
 
 const MAX_BUID_RETRIES = 10;
 const BUID_BYTE_LENGTH = 10;
@@ -168,6 +168,12 @@ export const registerBuidCallable = buildCloudFunction().https.onCall(async (dat
     }
 
     const buid = await registerBuid(client, users, client.collection("registrations"), fuid, payload);
+
+    // increment count of registered users
+    await FIREBASE_DB.ref("usersCount").transaction((i) => {
+        return i + 1
+    });
+    
     console.log(`Registered BUID ${buid} for user ${fuid}`);
 
     const tuids = await createTuids(client, client.collection("tuids"), fuid, buid, INITIAL_TUIDS_PER_BUID);
