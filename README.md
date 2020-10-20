@@ -1,3 +1,6 @@
+This repo is no longer used and is replaced by [erouska-backend](https://github.com/covid19cz/erouska-backend).
+---
+
 # erouska-firebase
 Firebase serverless backend for eRouška
 
